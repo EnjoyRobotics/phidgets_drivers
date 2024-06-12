@@ -259,17 +259,24 @@ SpatialRosI::SpatialRosI(const rclcpp::NodeOptions &options)
                       std::placeholders::_3, std::placeholders::_4),
             algorithm_data_handler,
             std::bind(&SpatialRosI::attachCallback, this),
-            std::bind(&SpatialRosI::detachCallback, this));
+            std::bind(&SpatialRosI::detachCallback, this),
+            std::bind(&SpatialRosI::errorCallback, this, std::placeholders::_1,
+                      std::placeholders::_2));
 
         RCLCPP_INFO(get_logger(), "Connected to serial %d",
                     spatial_->getSerialNumber());
 
         spatial_->setDataInterval(data_interval_ms);
 
+        is_connected_ = true;
+
         cal_publisher_ = this->create_publisher<std_msgs::msg::Bool>(
             "imu/is_calibrated", rclcpp::SystemDefaultsQoS().transient_local());
 
         calibrate();
+
+        // set the hardware id for diagnostics
+        diag_updater_.setHardwareIDf("phidget_spatial-%d", spatial_->getSerialNumber());
 
         if (use_orientation)
         {
@@ -319,6 +326,19 @@ SpatialRosI::SpatialRosI(const rclcpp::NodeOptions &options)
     magnetic_field_pub_ =
         this->create_publisher<sensor_msgs::msg::MagneticField>("imu/mag", 1);
 
+    // Set up the topic publisher diagnostics monitor for imu/data_raw
+    // 1. The frequency status component monitors if imu data is published
+    // within 10% tolerance of the desired frequency of 1.0 / period
+    // 2. The timstamp status component monitors the delay between
+    // the header.stamp of the imu message and the real (ros) time
+    // the maximum tolerable drift is +- 100ms
+    imu_pub_diag_ptr_ = std::make_shared<diagnostic_updater::TopicDiagnostic>(
+            "imu/data_raw",
+            std::ref(diag_updater_),
+            diagnostic_updater::FrequencyStatusParam(&publish_rate_, &publish_rate_, 0.1, 5),
+            diagnostic_updater::TimeStampStatusParam(-0.1, 0.1)
+            );
+
     if (publish_rate_ > 0.0)
     {
         double pub_msec = 1000.0 / publish_rate_;
@@ -326,6 +346,8 @@ SpatialRosI::SpatialRosI(const rclcpp::NodeOptions &options)
             std::chrono::milliseconds(static_cast<int64_t>(pub_msec)),
             std::bind(&SpatialRosI::timerCallback, this));
     }
+
+    diag_updater_.add("IMU Driver Status", this, &SpatialRosI::phidgetsDiagnostics);
 }
 
 void SpatialRosI::calibrate()
@@ -419,6 +441,7 @@ void SpatialRosI::publishLatest()
     msg->orientation.z = last_quat_z_;
 
     imu_pub_->publish(std::move(msg));
+    imu_pub_diag_ptr_->tick(ros_time);
 
     // Fill out and publish magnetic message
     mag_msg->header.frame_id = frame_id_;
@@ -596,6 +619,11 @@ void SpatialRosI::attachCallback()
 {
     RCLCPP_INFO(get_logger(), "Phidget Spatial attached.");
 
+    is_connected_ = true;
+    // Reset error number to no error if the prev error was disconnect
+    if (error_number_ == 13) error_number_ = 0;
+    diag_updater_.force_update();
+
     // Set data interval. This is in attachCallback() because it has to be
     // repeated on reattachment.
     spatial_->setDataInterval(data_interval_ns_ / 1000 / 1000);
@@ -609,7 +637,40 @@ void SpatialRosI::attachCallback()
 
 void SpatialRosI::detachCallback()
 {
+    is_connected_ = false;
+    diag_updater_.force_update();
     RCLCPP_INFO(get_logger(), "Phidget Spatial detached.");
+}
+
+void SpatialRosI::errorCallback(Phidget_ErrorEventCode error_code, const char *error_msg)
+{
+    error_number_ = error_code;
+    error_msg_ = error_msg;
+
+    diag_updater_.force_update();
+    RCLCPP_ERROR(get_logger(), "Phidget Spatial: %s (%d)", error_msg, error_code);
+}
+
+void SpatialRosI::phidgetsDiagnostics(diagnostic_updater::DiagnosticStatusWrapper &stat)
+{
+  if (is_connected_)
+  {
+    stat.summary(diagnostic_msgs::msg::DiagnosticStatus::OK, "The Phidget is connected.");
+    stat.add("Device Serial Number", spatial_->getSerialNumber());
+    stat.add("Device Name", "PhidgetSpatial");
+    stat.add("Device Type", "IMU");
+  }
+  else
+  {
+    stat.summary(diagnostic_msgs::msg::DiagnosticStatus::ERROR, "The Phidget is not connected. Check the USB.");
+  }
+
+  if (error_number_ != 0 && error_number_ != 4)
+  {
+    stat.mergeSummary(diagnostic_msgs::msg::DiagnosticStatus::ERROR, "The Phidget reports error.");
+    stat.add("Error Number", error_number_);
+    stat.add("Error message", *error_msg_);
+  }
 }
 
 }  // namespace phidgets
