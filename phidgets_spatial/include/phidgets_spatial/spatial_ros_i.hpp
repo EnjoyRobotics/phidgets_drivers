@@ -136,6 +136,12 @@ class SpatialRosI final : public rclcpp::Node
      * 		    diagnostic_updater package.
      * Added for diagnostics */
     void phidgetsDiagnostics(diagnostic_updater::DiagnosticStatusWrapper &stat);
+
+    /**@brief Method to check the connection status of the device.
+     * @param stat The stat param is what is the diagnostic tasks are added two. Internally published by the
+     * 		    diagnostic_updater package.
+     * Added for diagnostics */
+    void checkConnection(diagnostic_updater::DiagnosticStatusWrapper &stat);
 };
 
 }  // namespace phidgets

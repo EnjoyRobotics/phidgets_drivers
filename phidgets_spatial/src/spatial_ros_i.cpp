@@ -348,6 +348,7 @@ SpatialRosI::SpatialRosI(const rclcpp::NodeOptions &options)
     }
 
     diag_updater_.add("IMU Driver Status", this, &SpatialRosI::phidgetsDiagnostics);
+    diag_updater_.add("Connection Status", this, &SpatialRosI::checkConnection);
 }
 
 void SpatialRosI::calibrate()
@@ -653,24 +654,34 @@ void SpatialRosI::errorCallback(Phidget_ErrorEventCode error_code, const char *e
 
 void SpatialRosI::phidgetsDiagnostics(diagnostic_updater::DiagnosticStatusWrapper &stat)
 {
-  if (is_connected_)
-  {
-    stat.summary(diagnostic_msgs::msg::DiagnosticStatus::OK, "The Phidget is connected.");
-    stat.add("Device Serial Number", spatial_->getSerialNumber());
-    stat.add("Device Name", "PhidgetSpatial");
-    stat.add("Device Type", "IMU");
-  }
-  else
-  {
-    stat.summary(diagnostic_msgs::msg::DiagnosticStatus::ERROR, "The Phidget is not connected. Check the USB.");
-  }
+    if (error_number_ == 4)
+    {
+        stat.summary(diagnostic_msgs::msg::DiagnosticStatus::WARN, "The Phidget reports a warning.");
+        stat.add("Error Number", error_number_);
+        stat.add("Error message", "An error occurred when trying to dispatch an event.");
+    } else if (error_number_ != 0)
+    {
+        stat.summary(diagnostic_msgs::msg::DiagnosticStatus::ERROR, "The Phidget reports error.");
+        stat.add("Error Number", error_number_);
+        stat.add("Error message", *error_msg_);
+    } else
+    {
+        stat.summary(diagnostic_msgs::msg::DiagnosticStatus::OK, "The Phidget reports no errors.");
+    }
+}
 
-  if (error_number_ != 0 && error_number_ != 4)
-  {
-    stat.mergeSummary(diagnostic_msgs::msg::DiagnosticStatus::ERROR, "The Phidget reports error.");
-    stat.add("Error Number", error_number_);
-    stat.add("Error message", *error_msg_);
-  }
+void SpatialRosI::checkConnection(diagnostic_updater::DiagnosticStatusWrapper &stat)
+{
+    if (is_connected_)
+    {
+        stat.summary(diagnostic_msgs::msg::DiagnosticStatus::OK, "The Phidget is connected.");
+        stat.add("Device Serial Number", spatial_->getSerialNumber());
+        stat.add("Device Name", "PhidgetSpatial");
+        stat.add("Device Type", "IMU");
+    } else
+    {
+        stat.summary(diagnostic_msgs::msg::DiagnosticStatus::ERROR, "The Phidget is not connected. Check the USB.");
+    }
 }
 
 }  // namespace phidgets
