@@ -251,7 +251,7 @@ SpatialRosI::SpatialRosI(const rclcpp::NodeOptions &options)
                 std::bind(&SpatialRosI::spatialAlgorithmDataCallback, this,
                           std::placeholders::_1, std::placeholders::_2);
         }
-
+        diag_updater_.setHardwareID("none");
         spatial_ = std::make_unique<Spatial>(
             serial_num, hub_port, false,
             std::bind(&SpatialRosI::spatialDataCallback, this,
