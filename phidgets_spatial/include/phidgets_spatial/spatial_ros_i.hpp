@@ -39,6 +39,9 @@
 #include <sensor_msgs/msg/magnetic_field.hpp>
 #include <std_msgs/msg/bool.hpp>
 #include <std_srvs/srv/empty.hpp>
+#include "diagnostic_updater/diagnostic_updater.hpp"
+#include "diagnostic_updater/publisher.hpp"
+#include "diagnostic_msgs/msg/diagnostic_status.hpp"
 
 #include "phidgets_api/spatial.hpp"
 
@@ -61,6 +64,15 @@ class SpatialRosI final : public rclcpp::Node
     rclcpp::Publisher<sensor_msgs::msg::Imu>::SharedPtr imu_pub_;
     rclcpp::Publisher<sensor_msgs::msg::MagneticField>::SharedPtr
         magnetic_field_pub_;
+
+    /**@brief updater object of class Update. Used to add diagnostic tasks, set ID etc. refer package API.
+     * Added for diagnostics */
+    diagnostic_updater::Updater diag_updater_{this};
+    std::shared_ptr<diagnostic_updater::TopicDiagnostic> imu_pub_diag_ptr_;
+    bool is_connected_ = false;
+    int error_number_ = 0;
+    const char *error_msg_;
+
     void timerCallback();
     rclcpp::TimerBase::SharedPtr timer_;
     double publish_rate_;
@@ -117,6 +129,19 @@ class SpatialRosI final : public rclcpp::Node
                                       double timestamp);
     void attachCallback();
     void detachCallback();
+    void errorCallback(Phidget_ErrorEventCode error_code, const char *error_msg);
+
+     /**@brief Main diagnostic method that takes care of collecting diagnostic data.
+     * @param stat The stat param is what is the diagnostic tasks are added two. Internally published by the
+     * 		    diagnostic_updater package.
+     * Added for diagnostics */
+    void phidgetsDiagnostics(diagnostic_updater::DiagnosticStatusWrapper &stat);
+
+    /**@brief Method to check the connection status of the device.
+     * @param stat The stat param is what is the diagnostic tasks are added two. Internally published by the
+     * 		    diagnostic_updater package.
+     * Added for diagnostics */
+    void checkConnection(diagnostic_updater::DiagnosticStatusWrapper &stat);
 };
 
 }  // namespace phidgets

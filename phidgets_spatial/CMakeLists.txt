@@ -17,6 +17,8 @@ find_package(rclcpp_components REQUIRED)
 find_package(sensor_msgs REQUIRED)
 find_package(std_msgs REQUIRED)
 find_package(std_srvs REQUIRED)
+find_package(diagnostic_updater REQUIRED)
+find_package(diagnostic_msgs REQUIRED)
 
 include_directories(include)
 
@@ -28,6 +30,8 @@ ament_target_dependencies(phidgets_spatial
   sensor_msgs
   std_msgs
   std_srvs
+  diagnostic_updater
+  diagnostic_msgs
 )
 
 rclcpp_components_register_nodes(phidgets_spatial

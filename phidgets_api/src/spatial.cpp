@@ -43,12 +43,14 @@ Spatial::Spatial(
                        double)>
         data_handler,
     std::function<void(const double[4], double)> algorithm_data_handler,
-    std::function<void()> attach_handler, std::function<void()> detach_handler)
+    std::function<void()> attach_handler, std::function<void()> detach_handler,
+    std::function<void(Phidget_ErrorEventCode, const char *)> error_handler)
     : serial_number_(serial_number),
       data_handler_(std::move(data_handler)),
       algorithm_data_handler_(std::move(algorithm_data_handler)),
       attach_handler_(std::move(attach_handler)),
-      detach_handler_(std::move(detach_handler))
+      detach_handler_(std::move(detach_handler)),
+        error_handler_(std::move(error_handler))
 {
     PhidgetReturnCode ret = PhidgetSpatial_create(&spatial_handle_);
     if (ret != EPHIDGET_OK)
@@ -99,6 +101,17 @@ Spatial::Spatial(
         {
             throw Phidget22Error("Failed to set detach handler for Spatial",
                                  ret);
+        }
+    }
+
+    if (error_handler_ != nullptr)
+    {
+        ret = Phidget_setOnErrorHandler(
+            reinterpret_cast<PhidgetHandle>(spatial_handle_), ErrorHandler,
+            this);
+        if (ret != EPHIDGET_OK)
+        {
+            throw Phidget22Error("Failed to set error handler for Spatial", ret);
         }
     }
 
@@ -245,6 +258,12 @@ void Spatial::detachHandler()
     detach_handler_();
 }
 
+void Spatial::errorHandler(Phidget_ErrorEventCode error_code,
+                              const char *error_string)
+{
+    error_handler_(error_code, error_string);
+}
+
 void Spatial::DataHandler(PhidgetSpatialHandle /* input_handle */, void *ctx,
                           const double acceleration[3],
                           const double angular_rate[3],
@@ -271,4 +290,10 @@ void Spatial::DetachHandler(PhidgetHandle /* input_handle */, void *ctx)
     ((Spatial *)ctx)->detachHandler();
 }
 
+void Spatial::ErrorHandler(PhidgetHandle /* input_handle */, void *ctx, Phidget_ErrorEventCode error_code,
+                           const char * error_string)
+{
+    ((Spatial *)ctx)->errorHandler(error_code, error_string);
+
+}
 }  // namespace phidgets

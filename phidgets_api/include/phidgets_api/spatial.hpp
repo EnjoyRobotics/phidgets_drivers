@@ -50,7 +50,9 @@ class Spatial final
             data_handler,
         std::function<void(const double[4], double)> algorithm_data_handler,
         std::function<void()> attach_handler = nullptr,
-        std::function<void()> detach_handler = nullptr);
+        std::function<void()> detach_handler = nullptr,
+        std::function<void(Phidget_ErrorEventCode, const char *)> error_handler =
+            nullptr);
 
     ~Spatial();
 
@@ -87,6 +89,8 @@ class Spatial final
 
     virtual void attachHandler();
     virtual void detachHandler();
+    virtual void errorHandler(Phidget_ErrorEventCode error_code,
+                              const char *error_string);
 
   private:
     int32_t serial_number_;
@@ -99,6 +103,7 @@ class Spatial final
 
     std::function<void()> attach_handler_;
     std::function<void()> detach_handler_;
+    std::function<void(Phidget_ErrorEventCode, const char *)> error_handler_;
 
     PhidgetSpatialHandle spatial_handle_{nullptr};
 
@@ -111,6 +116,9 @@ class Spatial final
                                      double timestamp);
     static void AttachHandler(PhidgetHandle input_handle, void *ctx);
     static void DetachHandler(PhidgetHandle input_handle, void *ctx);
+    static void ErrorHandler(PhidgetHandle input_handle, void *ctx,
+                            Phidget_ErrorEventCode error_code,
+                            const char *error_string);
 };
 
 }  // namespace phidgets
