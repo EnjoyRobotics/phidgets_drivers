@@ -657,12 +657,7 @@ void SpatialRosI::errorCallback(Phidget_ErrorEventCode error_code, const char *e
 
 void SpatialRosI::phidgetsDiagnostics(diagnostic_updater::DiagnosticStatusWrapper &stat)
 {
-    if (error_number_ == 4)
-    {
-        stat.summary(diagnostic_msgs::msg::DiagnosticStatus::WARN, "The Phidget reports a warning.");
-        stat.add("Error Number", error_number_);
-        stat.add("Error message", "An error occurred when trying to dispatch an event.");
-    } else if (error_number_ != 0)
+    if (error_number_ != 0)
     {
         stat.summary(diagnostic_msgs::msg::DiagnosticStatus::ERROR, "The Phidget reports error.");
         stat.add("Error Number", error_number_);
