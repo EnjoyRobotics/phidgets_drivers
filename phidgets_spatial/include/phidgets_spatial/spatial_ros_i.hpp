@@ -91,6 +91,7 @@ class SpatialRosI final : public rclcpp::Node
     int64_t cb_delta_epsilon_ns_{0};
 
     void calibrate();
+    rclcpp::TimerBase::SharedPtr cal_timer_;
 
     void calibrateService(
         const std::shared_ptr<std_srvs::srv::Empty::Request> req,

@@ -273,8 +273,6 @@ SpatialRosI::SpatialRosI(const rclcpp::NodeOptions &options)
         cal_publisher_ = this->create_publisher<std_msgs::msg::Bool>(
             "imu/is_calibrated", rclcpp::SystemDefaultsQoS().transient_local());
 
-        calibrate();
-
         // set the hardware id for diagnostics
         diag_updater_.setHardwareIDf("phidget_spatial-%d", spatial_->getSerialNumber());
 
@@ -349,6 +347,11 @@ SpatialRosI::SpatialRosI(const rclcpp::NodeOptions &options)
 
     diag_updater_.add("IMU Driver Status", this, &SpatialRosI::phidgetsDiagnostics);
     diag_updater_.add("Connection Status", this, &SpatialRosI::checkConnection);
+
+    cal_timer_ = this->create_wall_timer(std::chrono::seconds(0), [this]() -> void {
+        cal_timer_->cancel();
+        calibrate();
+    });
 }
 
 void SpatialRosI::calibrate()
@@ -654,12 +657,7 @@ void SpatialRosI::errorCallback(Phidget_ErrorEventCode error_code, const char *e
 
 void SpatialRosI::phidgetsDiagnostics(diagnostic_updater::DiagnosticStatusWrapper &stat)
 {
-    if (error_number_ == 4)
-    {
-        stat.summary(diagnostic_msgs::msg::DiagnosticStatus::WARN, "The Phidget reports a warning.");
-        stat.add("Error Number", error_number_);
-        stat.add("Error message", "An error occurred when trying to dispatch an event.");
-    } else if (error_number_ != 0)
+    if (error_number_ != 0)
     {
         stat.summary(diagnostic_msgs::msg::DiagnosticStatus::ERROR, "The Phidget reports error.");
         stat.add("Error Number", error_number_);
