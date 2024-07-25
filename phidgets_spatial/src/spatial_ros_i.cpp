@@ -273,11 +273,6 @@ SpatialRosI::SpatialRosI(const rclcpp::NodeOptions &options)
         cal_publisher_ = this->create_publisher<std_msgs::msg::Bool>(
             "imu/is_calibrated", rclcpp::SystemDefaultsQoS().transient_local());
 
-        cal_timer_ = this->create_wall_timer(std::chrono::seconds(1), [this]() -> void {
-            cal_timer_->cancel();
-            calibrate();
-        });
-
         // set the hardware id for diagnostics
         diag_updater_.setHardwareIDf("phidget_spatial-%d", spatial_->getSerialNumber());
 
@@ -352,6 +347,11 @@ SpatialRosI::SpatialRosI(const rclcpp::NodeOptions &options)
 
     diag_updater_.add("IMU Driver Status", this, &SpatialRosI::phidgetsDiagnostics);
     diag_updater_.add("Connection Status", this, &SpatialRosI::checkConnection);
+
+    cal_timer_ = this->create_wall_timer(std::chrono::seconds(0), [this]() -> void {
+        cal_timer_->cancel();
+        calibrate();
+    });
 }
 
 void SpatialRosI::calibrate()
